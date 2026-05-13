@@ -80,3 +80,37 @@ jobs:
 
       - name: Push Docker SHA tag
         run: docker push $IMAGE_NAME:${{ github.sha }}
+
+  deploy-qa:
+
+    runs-on: ubuntu-latest
+
+    needs: docker-push
+
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+
+      - name: Deploy application to QA EC2
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.QA_HOST }}
+          username: ${{ secrets.QA_USER }}
+          key: ${{ secrets.QA_SSH_KEY }}
+
+          script: |
+
+            docker pull stevejordache/java-hello-cicd:latest
+
+            docker stop java-app || true
+
+            docker rm java-app || true
+
+            docker run -d \
+              --name java-app \
+              -p 8080:8080 \
+              stevejordache/java-hello-cicd:latest
+
+            sleep 10
+
+            curl http://localhost:8080/health
